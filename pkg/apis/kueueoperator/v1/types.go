@@ -553,7 +553,9 @@ type DeviceClassMapping struct {
 
 	// sources configures resource accounting sources for this mapping.
 	// Each source defines how quota is tracked for this DeviceClass.
-	// Currently only counter sources are supported (for partitionable devices).
+	// Counter and capacity sources are supported for DRA quota accounting.
+	// Counter sources are used for partitionable devices.
+	// Capacity sources are used for consumable capacity devices that allow multiple allocations.
 	// Extended resource requests that resolve to a DeviceClass with sources
 	// configured are marked inadmissible.
 	// The operator automatically enables the required kueue feature gate when
@@ -570,6 +572,7 @@ type DeviceClassMapping struct {
 // DeviceClassSourceConfig defines a resource accounting source for a DeviceClassMapping.
 // Exactly one of the source types must be set.
 // +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'Counter' ? has(self.counter) : !has(self.counter)",message="counter is required when type is Counter, and forbidden otherwise"
+// +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'Capacity' ? has(self.capacity) : !has(self.capacity)",message="capacity is required when type is Capacity, and forbidden otherwise"
 // +union
 type DeviceClassSourceConfig struct {
 	// type selects the source type for resource accounting.
@@ -583,13 +586,19 @@ type DeviceClassSourceConfig struct {
 	// counter is required when type is Counter, and forbidden otherwise.
 	// +optional
 	Counter DeviceClassCounterSource `json:"counter,omitzero"`
+
+	// capacity configures capacity-based quota for consumable capacity devices.
+	// capacity is required when type is Capacity, and forbidden otherwise.
+	// +optional
+	Capacity DeviceClassCapacitySource `json:"capacity,omitzero"`
 }
 
-// +kubebuilder:validation:Enum=Counter
+// +kubebuilder:validation:Enum=Counter;Capacity
 type DeviceClassSourceType string
 
 const (
-	DeviceClassSourceTypeCounter DeviceClassSourceType = "Counter"
+	DeviceClassSourceTypeCounter  DeviceClassSourceType = "Counter"
+	DeviceClassSourceTypeCapacity DeviceClassSourceType = "Capacity"
 )
 
 // DeviceClassCounterSource identifies where to read counter data from and which counter to track.
@@ -627,6 +636,30 @@ type DeviceClassCounterSource struct {
 	// ResourceClaimTemplate selector, which narrows to the requested profile.
 	// The selector is compiled at config load time using the upstream dracel
 	// compiler.
+	// +required
+	DeviceSelector DeviceSelector `json:"deviceSelector,omitzero"`
+}
+
+// DeviceClassCapacitySource identifies where to read consumable capacity data from.
+type DeviceClassCapacitySource struct {
+	// name is the capacity dimension within ResourceSlice device capacity
+	// to track for quota, for example "memory".
+	// Must match a capacity name published by the DRA driver.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="!format.qualifiedName().validate(self).hasValue()",message="must be a qualified name, for example 'memory' or 'gpu.example.com/memory'"
+	// +required
+	Name string `json:"name,omitempty"`
+
+	// driver is the DRA driver name used to filter relevant ResourceSlices.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="!format.dns1123Subdomain().validate(self).hasValue()",message="must be a valid DNS subdomain, for example 'gpu.example.com'"
+	// +required
+	Driver string `json:"driver,omitempty"`
+
+	// deviceSelector scopes which devices are eligible for capacity-based
+	// quota accounting.
 	// +required
 	DeviceSelector DeviceSelector `json:"deviceSelector,omitzero"`
 }

@@ -34,6 +34,7 @@ func TestBuildConfigMap(t *testing.T) {
 		gvrToKind                      map[string]string
 		draExtendedResourceEnabled     bool
 		draPartitionableDevicesEnabled bool
+		draConsumableCapacityEnabled   bool
 		tlsOpts                        *configapi.TLSOptions
 		wantCfgMap                     *corev1.ConfigMap
 		wantErr                        error
@@ -1274,7 +1275,7 @@ webhook:
 
 	for desc, tc := range testCases {
 		t.Run(desc, func(t *testing.T) {
-			got, err := BuildConfigMap("test", tc.configuration, tc.gvrToKind, tc.draExtendedResourceEnabled, tc.draPartitionableDevicesEnabled, tc.tlsOpts)
+			got, err := BuildConfigMap("test", tc.configuration, tc.gvrToKind, tc.draExtendedResourceEnabled, tc.draPartitionableDevicesEnabled, tc.draConsumableCapacityEnabled, tc.tlsOpts)
 			if err != nil && tc.wantErr == nil {
 				t.Fatalf("Unexpected error: want=%v, got=%v", tc.wantErr, err)
 			}
